@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:mm_app/connection.dart';
 import 'package:mm_app/led.dart';
+import 'device_on_history.dart';
 
 void main() {
   runApp(MyApp());
@@ -46,14 +47,23 @@ class MyApp extends StatelessWidget {
 }
 
 class Home extends StatelessWidget {
-  
   @override
   Widget build(BuildContext context) {
     return SafeArea(
         child: Scaffold(
-          backgroundColor: Colors.blueGrey,
+      backgroundColor: Colors.blueGrey,
       appBar: AppBar(
         title: Text('Home Automation'),
+        actions: [IconButton(onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) {
+                return DeviceHistory();
+              },
+            ),
+          );
+        }, icon: Icon(Icons.history))],
         backgroundColor: Colors.blueAccent,
       ),
       body: SelectBondedDevicePage(
