@@ -4,9 +4,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:avatar_glow/avatar_glow.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:highlight_text/highlight_text.dart';
 import 'package:mm_app/toast.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:http/http.dart' as http;
 
 class ChatPage extends StatefulWidget {
   final BluetoothDevice server;
@@ -131,12 +133,40 @@ class _ChatPage extends State<ChatPage> {
     super.dispose();
   }
 
+  sendData(bulb, fan) async {
+    var url = Uri.parse(
+        'https://api.thingspeak.com/update?api_key=10L1AOMOXBHMFL3T&field1=$bulb&field2=$fan');
+
+    Map<String, String> header = {
+      "Content-type": "application/json",
+    };
+    try {
+      http.Response response = await http
+          .get(
+            url,
+            headers: header,
+          )
+          .catchError((err) {});
+      if (response.statusCode != 201 && response.statusCode != 200) {
+        return null;
+      } else {
+        var data = jsonDecode(response.body);
+        print(data);
+      }
+    } catch (error) {
+      rethrow;
+    }
+  }
+
+  bool bulbOn = false;
+  bool fanOn = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.blueGrey,
       appBar: AppBar(
-        backgroundColor: Colors.blueAccent,
+          backgroundColor: Colors.blueAccent,
           title: (isConnecting
               ? Text('Connecting to ' + widget.server.name + '...')
               : isConnected
@@ -161,15 +191,72 @@ class _ChatPage extends State<ChatPage> {
       body: SingleChildScrollView(
         reverse: true,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(30.0, 30.0, 30.0, 150.0),
-          child: TextHighlight(
-            text: _text,
-            words: _highlights,
-            textStyle: const TextStyle(
-              fontSize: 32.0,
-              color: Colors.white,
-              fontWeight: FontWeight.w400,
-            ),
+          padding: const EdgeInsets.fromLTRB(30.0, 50.0, 30.0, 150.0),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    height: MediaQuery.of(context).size.width * 0.40,
+                    width: MediaQuery.of(context).size.width * 0.40,
+                    child: ElevatedButton(
+                        onPressed: () async {
+                          if (bulbOn) {
+                            _sendMessage("bulb off");
+                            await sendData(0, null);
+                            bulbOn = false;
+                          } else {
+                            _sendMessage("bulb on");
+                            await sendData(1, null);
+                            bulbOn = true;
+                          }
+                          setState(() {});
+                        },
+                        style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(
+                          bulbOn ? Colors.greenAccent : Colors.blueAccent,
+                        )),
+                        child: Icon(FontAwesomeIcons.lightbulb)),
+                  ),
+                  Container(
+                    height: MediaQuery.of(context).size.width * 0.40,
+                    width: MediaQuery.of(context).size.width * 0.40,
+                    child: ElevatedButton(
+                        onPressed: () async {
+                          if (fanOn) {
+                            _sendMessage("fan off");
+                            await sendData(null, 0);
+                            fanOn = false;
+                          } else {
+                            _sendMessage("fan on");
+                            await sendData(null, 1);
+                            fanOn = true;
+                          }
+                          setState(() {});
+                        },
+                        style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(
+                          fanOn ? Colors.greenAccent : Colors.blueAccent,
+                        )),
+                        child: Icon(FontAwesomeIcons.fan)),
+                  ),
+                ],
+              ),
+              SizedBox(
+                height: 50,
+              ),
+              TextHighlight(
+                text: _text,
+                words: _highlights,
+                textStyle: const TextStyle(
+                  fontSize: 32.0,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -187,28 +274,54 @@ class _ChatPage extends State<ChatPage> {
         _speech.listen(
           onResult: (val) => setState(() {
             _text = val.recognizedWords;
-
           }),
         );
       }
     } else {
+      print(_text);
       if (_text.toLowerCase().contains("bulb")) {
         if (_text.toLowerCase().contains("on")) {
           _sendMessage("bulb on");
+          await sendData(1, null);
+          setState(() {
+            bulbOn = true;
+          });
         } else {
           _sendMessage("bulb off");
+          await sendData(0, null);
+          setState(() {
+            bulbOn = false;
+          });
         }
       } else if (_text.toLowerCase().contains("fan")) {
         if (_text.toLowerCase().contains("on")) {
           _sendMessage("fan on");
+          await sendData(null, 1);
+          setState(() {
+            fanOn = true;
+          });
         } else {
           _sendMessage("fan off");
+          await sendData(null, 0);
+          setState(() {
+            fanOn = false;
+          });
         }
       } else {
         if (_text.toLowerCase().contains("on")) {
           _sendMessage("all on");
+          await sendData(1, 1);
+          setState(() {
+            bulbOn = true;
+            fanOn = true;
+          });
         } else {
           _sendMessage("all off");
+          await sendData(0, 0);
+          setState(() {
+            bulbOn = false;
+            fanOn = false;
+          });
         }
       }
       setState(() => _isListening = false);
@@ -271,6 +384,7 @@ class _ChatPage extends State<ChatPage> {
 
     if (text.length > 0) {
       try {
+        print("----HERE----");
         connection.output.add(utf8.encode(text + "\r\n"));
         await connection.output.allSent;
 
@@ -278,13 +392,14 @@ class _ChatPage extends State<ChatPage> {
           messages.add(_Message(clientID, text));
         });
 
-        Future.delayed(Duration(milliseconds: 333)).then((_) {
-          listScrollController.animateTo(
-              listScrollController.position.maxScrollExtent,
-              duration: Duration(milliseconds: 333),
-              curve: Curves.easeOut);
-        });
+        // Future.delayed(Duration(milliseconds: 333)).then((_) {
+        //   listScrollController.animateTo(
+        //       listScrollController.position.maxScrollExtent,
+        //       duration: Duration(milliseconds: 333),
+        //       curve: Curves.easeOut);
+        // });
       } catch (e) {
+        print("ERROR: " + e.toString());
         // Ignore error, but notify state
         setState(() {});
       }

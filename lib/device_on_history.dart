@@ -135,29 +135,36 @@ class _DeviceHistoryState extends State<DeviceHistory> {
     List<ListTile> list = deviceData.map(
       (_device) {
         if (_device.device == device) {
-          int minutes = DateTime.parse(_device.endTime).difference(DateTime.parse(_device.startTime)).inMinutes;
+          int minutes = DateTime.parse(_device.endTime)
+              .difference(DateTime.parse(_device.startTime))
+              .inMinutes;
           return ListTile(
             title: Text(
               _device.device.toUpperCase() +
                   " was turned on for " +
+                  "${((minutes ~/ 60).toInt() > 24) ? ((minutes ~/ 60) % 24).toString() + ' day(s), ' : ""}" +
                   "${(minutes.toInt() > 60) ? (minutes ~/ 60).toString() + ' hours and ' : ""}" +
-                  "${(minutes % 60)} minutes",
+                  "${(minutes.toInt() == 0) ? (DateTime.parse(_device.endTime).difference(DateTime.parse(_device.startTime)).inSeconds).toString() + ' seconds' : (minutes % 60).toString() + " minutes and " + (DateTime.parse(_device.endTime).difference(DateTime.parse(_device.startTime)).inSeconds % 60).toString() + " seconds"}",
+              // "${(minutes % 60)} minutes",
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold),
             ),
-            subtitle: Text(
-              "from " +
-                  "${DateFormat("dd MMM, HH:mm").format(DateTime.parse(
-                    _device.startTime,
-                  ).toLocal())}"
-                      " to " +
-                  "${DateFormat("dd MMM, HH:mm").format(DateTime.parse(_device.endTime).toLocal())}",
-              style: TextStyle(
-                  color: Colors.tealAccent,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                "from " +
+                    "${DateFormat("dd MMM, HH:mm").format(DateTime.parse(
+                      _device.startTime,
+                    ).toLocal())}"
+                        " to " +
+                    "${DateFormat("dd MMM, HH:mm").format(DateTime.parse(_device.endTime).toLocal())}",
+                style: TextStyle(
+                    color: Colors.tealAccent,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold),
+              ),
             ),
           );
         }
@@ -173,10 +180,10 @@ class _DeviceHistoryState extends State<DeviceHistory> {
                 fontWeight: FontWeight.bold)),
       );
     }
-    print(list);
+    print(list.reversed);
     return ListView.separated(
       itemCount: list.length,
-      itemBuilder: (context, index) => list[index],
+      itemBuilder: (context, index) => list.reversed.toList()[index],
       separatorBuilder: (context, index) => Divider(
         color: Colors.white,
       ),
